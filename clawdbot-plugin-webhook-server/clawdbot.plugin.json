@@ -1,5 +1,4 @@
 {
-    "$schema": "https://docs.clawd.bot/schemas/plugin.json",
     "id": "webhook-server",
     "name": "Webhook Server",
     "version": "1.0.0",
