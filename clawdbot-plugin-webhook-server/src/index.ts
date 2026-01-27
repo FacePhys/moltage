@@ -221,6 +221,61 @@ function getPluginConfig(api: ClawdbotPluginApi): Required<WebhookServerConfig> 
     };
 }
 
+/**
+ * Chat RPC response format
+ */
+interface ChatRpcResult {
+    text: string;
+    model?: string;
+}
+
+/**
+ * Call Clawdbot's chat.send RPC method via HTTP
+ * Uses the Gateway's HTTP API on localhost:18789
+ */
+async function callChatRpc(
+    api: ClawdbotPluginApi,
+    options: {
+        message: string;
+        conversationId?: string;
+        metadata?: Record<string, unknown>;
+    }
+): Promise<ChatRpcResult> {
+    const gatewayPort = 18789; // Default Clawdbot Gateway port
+    const rpcUrl = `http://127.0.0.1:${gatewayPort}/rpc`;
+
+    try {
+        const response = await axios.post(rpcUrl, {
+            jsonrpc: '2.0',
+            id: Date.now(),
+            method: 'chat.send',
+            params: {
+                message: options.message,
+                conversationId: options.conversationId || 'webhook-default',
+                waitForResponse: true, // Wait for agent response
+            },
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            timeout: 300000, // 5 minute timeout for long agent responses
+        });
+
+        if (response.data.error) {
+            throw new Error(response.data.error.message || 'RPC error');
+        }
+
+        const result = response.data.result;
+        return {
+            text: result?.text || result?.response || String(result),
+            model: result?.model,
+        };
+    } catch (error) {
+        api.logger.error(`Chat RPC failed: ${error}`);
+        throw error;
+    }
+}
+
 
 /**
  * Process a webhook task and send result to callback URL
@@ -235,12 +290,11 @@ async function processWebhookTask(
     api.logger.info(`Processing task for ${payload.metadata?.openid || 'unknown'}: ${payload.task.slice(0, 50)}...`);
 
     try {
-        // Send message to the agent using chat API
+        // Use the Gateway RPC method to send a chat message
+        // This calls the internal Clawdbot chat.send RPC
         const result = await Promise.race([
-            api.chat.send({
+            callChatRpc(api, {
                 message: payload.task,
-                channel: 'webhook',
-                senderId: payload.metadata?.openid,
                 conversationId: `webhook-${payload.metadata?.openid || 'default'}`,
                 metadata: payload.metadata,
             }),
@@ -258,8 +312,8 @@ async function processWebhookTask(
             success: true,
             result: result.text,
             metadata: {
-                thinking_time_ms: result.metadata?.thinking_time_ms || thinkingTimeMs,
-                model: result.metadata?.model,
+                thinking_time_ms: thinkingTimeMs,
+                model: result.model,
             },
         };
 
