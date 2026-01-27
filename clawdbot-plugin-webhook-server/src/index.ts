@@ -144,9 +144,15 @@ async function processMessageWithPipeline(payload: WebhookPayload) {
         channel: 'wechat',
         accountId: accountId,
         peer: { kind: 'dm', id: chatId }
-    });
+    }) || {
+        // Fallback if routing fails (e.g. config not updated)
+        agentId: (safeConfig as any)?.plugins?.entries?.['webhook-server']?.config?.agentId || 'default',
+        accountId: accountId,
+        sessionKey: `wechat:${senderId}`
+    };
 
     if (!route) {
+        // Should not happen with fallback, but TS check
         console.error('Failed to resolve agent route');
         return;
     }
