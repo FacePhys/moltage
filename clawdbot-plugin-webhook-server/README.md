@@ -28,15 +28,18 @@ plugins:
 
 ### Auto-generated Auth Token
 
-If `authToken` is not provided in the config, the plugin will **automatically generate a secure token** on first run and log it to the console:
+If `authToken` is not provided in the config, the plugin will **automatically generate a secure token** on first run and **persist it locally**:
+
+- Token is saved to: `~/.clawdbot/plugin-data/webhook-server/.auth-token`
+- Token is automatically loaded on subsequent restarts
+- No manual configuration needed!
 
 ```
-[webhook-server] Auto-generated authToken: wh_a1b2c3d4e5f6...
-[webhook-server] ⚠️  Save this token to your config.yaml to persist it:
-    plugins.entries.webhook-server.config.authToken: "wh_a1b2c3d4e5f6..."
+[webhook-server] Generated new authToken: wh_a1b2c3d4e5f6...
+[webhook-server] Token saved to: /root/.clawdbot/plugin-data/webhook-server/.auth-token
 ```
 
-> **Note**: The auto-generated token changes on each restart unless you save it to your config. For production, always persist the token.
+> **Note**: To reset the token, delete the `.auth-token` file and restart Clawdbot.
 
 ## API Endpoints
 

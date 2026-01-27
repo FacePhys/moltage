@@ -123,6 +123,62 @@ let server: FastifyInstance | null = null;
 let pluginApi: ClawdbotPluginApi | null = null;
 let generatedAuthToken: string | null = null;
 
+// Token persistence path
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
+/**
+ * Get the path for storing plugin data
+ */
+function getPluginDataDir(): string {
+    const homeDir = os.homedir();
+    return path.join(homeDir, '.clawdbot', 'plugin-data', 'webhook-server');
+}
+
+/**
+ * Get the path for the auth token file
+ */
+function getTokenFilePath(): string {
+    return path.join(getPluginDataDir(), '.auth-token');
+}
+
+/**
+ * Load persisted auth token from file
+ */
+function loadPersistedToken(): string | null {
+    try {
+        const tokenPath = getTokenFilePath();
+        if (fs.existsSync(tokenPath)) {
+            const token = fs.readFileSync(tokenPath, 'utf-8').trim();
+            if (token && token.startsWith('wh_')) {
+                return token;
+            }
+        }
+    } catch {
+        // Ignore errors, will generate new token
+    }
+    return null;
+}
+
+/**
+ * Save auth token to file for persistence
+ */
+function savePersistedToken(token: string, api: ClawdbotPluginApi): void {
+    try {
+        const dataDir = getPluginDataDir();
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+        }
+        const tokenPath = getTokenFilePath();
+        fs.writeFileSync(tokenPath, token, { mode: 0o600 }); // Secure permissions
+        api.logger.info(`[webhook-server] Token saved to: ${tokenPath}`);
+    } catch (error) {
+        api.logger.warn(`[webhook-server] Failed to save token: ${error}`);
+    }
+}
+
 /**
  * Generate a secure auth token
  */
@@ -133,18 +189,26 @@ function generateSecureToken(): string {
 
 /**
  * Get plugin config with defaults. Auto-generates authToken if not provided.
+ * Persists the token to local storage for reuse across restarts.
  */
 function getPluginConfig(api: ClawdbotPluginApi): Required<WebhookServerConfig> {
     const config = api.config.plugins?.entries?.['webhook-server']?.config || {};
 
-    // Handle authToken - auto-generate if missing or placeholder
+    // Handle authToken - load persisted, auto-generate if missing or placeholder
     let authToken = config.authToken ?? '';
     if (!authToken || authToken.startsWith('$auto:')) {
         if (!generatedAuthToken) {
-            generatedAuthToken = generateSecureToken();
-            api.logger.info(`[webhook-server] Auto-generated authToken: ${generatedAuthToken}`);
-            api.logger.info(`[webhook-server] ⚠️  Save this token to your config.yaml to persist it:`);
-            api.logger.info(`    plugins.entries.webhook-server.config.authToken: "${generatedAuthToken}"`);
+            // Try to load persisted token first
+            const persistedToken = loadPersistedToken();
+            if (persistedToken) {
+                generatedAuthToken = persistedToken;
+                api.logger.info(`[webhook-server] Loaded persisted authToken: ${generatedAuthToken.slice(0, 12)}...`);
+            } else {
+                // Generate new token and save it
+                generatedAuthToken = generateSecureToken();
+                savePersistedToken(generatedAuthToken, api);
+                api.logger.info(`[webhook-server] Generated new authToken: ${generatedAuthToken}`);
+            }
         }
         authToken = generatedAuthToken;
     }
