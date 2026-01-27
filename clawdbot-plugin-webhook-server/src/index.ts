@@ -136,8 +136,11 @@ async function processMessageWithPipeline(payload: WebhookPayload) {
     // Simplified: Check allowFrom list
     // In a full implementation, follow Zalo's `isSenderAllowed` and `pairing` logic
 
+    // Ensure config is not null
+    const safeConfig = config || {};
+
     const route = core.channel.routing?.resolveAgentRoute?.({
-        cfg: config,
+        cfg: safeConfig,
         channel: 'wechat',
         accountId: accountId,
         peer: { kind: 'dm', id: chatId }
@@ -158,10 +161,10 @@ async function processMessageWithPipeline(payload: WebhookPayload) {
 
     // Get Store Path (using config.session?.store if available)
     // We try to access config.session from the global config
-    const storePath = core.channel.session?.resolveStorePath?.((config as any).session?.store, { agentId: route.agentId });
+    const storePath = core.channel.session?.resolveStorePath?.((safeConfig as any).session?.store, { agentId: route.agentId });
 
     // Format Envelope
-    const envelopeOptions = core.channel.reply?.resolveEnvelopeFormatOptions?.(config);
+    const envelopeOptions = core.channel.reply?.resolveEnvelopeFormatOptions?.(safeConfig);
     const previousTimestamp = core.channel.session?.readSessionUpdatedAt?.({
         storePath,
         sessionKey
@@ -185,6 +188,7 @@ async function processMessageWithPipeline(payload: WebhookPayload) {
         To: `wechat:bot`,
         SessionKey: sessionKey,
         AccountId: accountId,
+        AgentId: route.agentId || accountId, // Fix: Explicitly pass AgentId
         ChatType: 'direct',
         ConversationLabel: senderName,
         SenderName: senderName,
