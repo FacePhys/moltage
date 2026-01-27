@@ -13,7 +13,7 @@ For full source code, issues, and bridge deployment guide, please visit our GitH
 Install the plugin from NPM:
 
 ```bash
-clawdbot plugins install @haiyanfl-llc/webhook-server
+clawdbot plugins install @haiyanfengli-llc/webhook-server
 ```
 
 ## ⚙️ Configuration

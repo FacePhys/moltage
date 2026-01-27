@@ -27,7 +27,7 @@ Clawdbot 的微信公众号连接套件。支持通过微信公众号与 Clawdbo
 在您的 Clawdbot 目录或工作区中安装此插件：
 
 ```bash
-clawdbot plugins install @haiyanfl-llc/webhook-server
+clawdbot plugins install @haiyanfengli-llc/webhook-server
 # 或者如果是源码安装
 clawdbot plugins install -l ./clawdbot-plugin-webhook-server
 ```

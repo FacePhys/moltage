@@ -1,5 +1,5 @@
 {
-    "name": "@haiyanfl-llc/webhook-server",
+    "name": "@haiyanfengli-llc/webhook-server",
     "version": "1.0.0",
     "description": "Clawdbot plugin that exposes a webhook server for external integrations",
     "main": "dist/index.js",
