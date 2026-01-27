@@ -230,8 +230,8 @@ interface ChatRpcResult {
 }
 
 /**
- * Call Clawdbot's agent via CLI command
- * Uses the clawdbot CLI to send a message and get a response
+ * Call Clawdbot's agent via Gateway RPC
+ * Uses the plugin API's callRpc method to invoke the agent
  */
 async function callChatRpc(
     api: ClawdbotPluginApi,
@@ -241,47 +241,46 @@ async function callChatRpc(
         metadata?: Record<string, unknown>;
     }
 ): Promise<ChatRpcResult> {
-    const { exec } = require('child_process');
-    const { promisify } = require('util');
-    const execAsync = promisify(exec);
-
     try {
-        // Escape the message for shell
-        const escapedMessage = options.message.replace(/'/g, "'\\''");
+        api.logger.info(`Sending message to agent: ${options.message.slice(0, 50)}...`);
 
-        // Use clawdbot CLI to send message
-        // The --json flag returns structured output
-        const command = `clawdbot chat --message '${escapedMessage}' --conversation '${options.conversationId || 'webhook'}' --no-stream --json`;
+        // Use Gateway RPC to send message to agent
+        const result = await api.callRpc('chat.send', {
+            message: options.message,
+            conversationId: options.conversationId || 'webhook-default',
+            metadata: options.metadata,
+        }) as { text: string; model?: string };
 
-        api.logger.info(`Executing: clawdbot chat --message '${escapedMessage.slice(0, 30)}...'`);
+        api.logger.info(`Agent responded with ${result.text?.length || 0} chars`);
 
-        const { stdout, stderr } = await execAsync(command, {
-            timeout: 300000, // 5 minute timeout
-            maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large responses
-        });
-
-        if (stderr) {
-            api.logger.warn(`CLI stderr: ${stderr}`);
-        }
-
-        try {
-            const result = JSON.parse(stdout);
-            return {
-                text: result.text || result.response || result.message || stdout,
-                model: result.model,
-            };
-        } catch {
-            // If not JSON, return raw output
-            return {
-                text: stdout.trim(),
-            };
-        }
+        return {
+            text: result.text || 'No response from agent',
+            model: result.model,
+        };
     } catch (error: unknown) {
-        const err = error as { message?: string; stderr?: string };
-        api.logger.error(`CLI command failed: ${err.message || error}`);
-        if (err.stderr) {
-            api.logger.error(`stderr: ${err.stderr}`);
+        const err = error as { message?: string; code?: string };
+        api.logger.error(`RPC chat.send failed: ${err.message || error}`);
+
+        // If chat.send doesn't exist, try alternative methods
+        if (err.code === 'METHOD_NOT_FOUND' || err.message?.includes('not found')) {
+            api.logger.warn('chat.send RPC not available, trying fallback...');
+            // Fallback: try agent.invoke if available
+            try {
+                const fallbackResult = await api.callRpc('agent.invoke', {
+                    input: options.message,
+                    sessionId: options.conversationId || 'webhook-default',
+                }) as { output: string; model?: string };
+
+                return {
+                    text: fallbackResult.output || 'No response',
+                    model: fallbackResult.model,
+                };
+            } catch (fallbackError) {
+                api.logger.error(`Fallback RPC also failed: ${fallbackError}`);
+                throw error; // Throw original error
+            }
         }
+
         throw error;
     }
 }
