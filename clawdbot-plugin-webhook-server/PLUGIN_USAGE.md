@@ -18,6 +18,17 @@ clawdbot plugins install @haiyanfengli-llc/webhook-server
 
 ## ⚙️ Configuration
 
+You can configure the plugin via the GUI (Recommended) or by editing the `clawdbot.json` file directly.
+
+### GUI Configuration (Recommended)
+
+1.  Navigate to your Clawdbot Dashboard: `http(s)://<gatewayurl>/config`
+2.  Scroll down the sidebar and click on **Plugins**.
+3.  Select the **All** tab.
+4.  Scroll down to the **WeChat** card to configure the settings.
+
+### Manual Configuration
+
 Add the following configuration to your Clawdbot `clawdbot.json`:
 
 ```json

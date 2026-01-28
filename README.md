@@ -36,6 +36,17 @@ clawdbot plugins install -l ./clawdbot-plugin-webhook-server
 
 
 
+您可以通过 GUI 界面（推荐）或手动编辑配置文件来配置插件。
+
+#### 方式一：GUI 界面配置（推荐）
+
+1. 浏览器访问 Clawdbot 控制台：`http(s)://<gatewayurl>/config`
+2. 在侧边栏向下滑动，找到 **Plugins** (插件管理)。
+3. 选择 **All** 标签页。
+4. 向下滑动找到 **WeChat** 卡片，即可配置相关内容。
+
+#### 方式二：手动配置
+
 编辑 Clawdbot 配置文件 (`clawdbot.json`)，启用微信频道：
 
 ```json
