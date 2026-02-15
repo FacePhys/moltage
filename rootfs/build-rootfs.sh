@@ -96,12 +96,13 @@ mount -t devtmpfs dev "$MOUNTPOINT/dev"
 #       Must install Node.js via apk from Alpine repos.
 echo "Installing packages in chroot..."
 chroot "$MOUNTPOINT" /bin/sh << 'CHROOTEOF'
-# Add Alpine edge/community for Node.js 22.x
+# Add Alpine edge repos for Node.js 22.x (3.19 only has Node 20.15 which is too old for npm 11)
+echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
 echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 
 apk update
 apk add --no-cache \
-    openrc openssh bash curl shadow \
+    openrc openssh bash curl shadow git \
     python3 make g++ linux-headers \
     nodejs npm
 
