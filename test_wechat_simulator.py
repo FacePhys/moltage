@@ -480,6 +480,8 @@ def interactive_mode():
 # ============================================================
 
 def main():
+    global BRIDGE_URL, WECHAT_TOKEN, FAKE_OPENID
+
     parser = argparse.ArgumentParser(
         description="微信公众号服务器推送模拟器 — 测试 Moltage WeChat Bridge",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -496,9 +498,9 @@ def main():
         """,
     )
 
-    parser.add_argument("--url", default=BRIDGE_URL, help=f"Bridge URL (默认: {BRIDGE_URL})")
-    parser.add_argument("--token", default=WECHAT_TOKEN, help=f"微信 Token (默认: {WECHAT_TOKEN})")
-    parser.add_argument("--openid", default=FAKE_OPENID, help="模拟用户 OpenID")
+    parser.add_argument("--url", default=None, help="Bridge URL (默认: 环境变量或 http://localhost:3000)")
+    parser.add_argument("--token", default=None, help="微信 Token (默认: 环境变量或 test_token)")
+    parser.add_argument("--openid", default=None, help="模拟用户 OpenID")
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--verify", action="store_true", help="测试 URL 验证 (GET)")
@@ -512,11 +514,13 @@ def main():
 
     args = parser.parse_args()
 
-    # 更新全局配置
-    global BRIDGE_URL, WECHAT_TOKEN, FAKE_OPENID
-    BRIDGE_URL = args.url
-    WECHAT_TOKEN = args.token
-    FAKE_OPENID = args.openid
+    # 更新全局配置（仅在命令行指定时覆盖）
+    if args.url:
+        BRIDGE_URL = args.url
+    if args.token:
+        WECHAT_TOKEN = args.token
+    if args.openid:
+        FAKE_OPENID = args.openid
 
     if args.verify:
         test_verify()

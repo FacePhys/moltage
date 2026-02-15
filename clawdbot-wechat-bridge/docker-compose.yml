@@ -19,12 +19,14 @@ services:
       - BRIDGE_BASE_URL=${BRIDGE_BASE_URL}
       - SSH_HOST=${SSH_HOST:-your-server.example.com}
       - SSH_PORT=${SSH_PORT:-2222}
-      - ORCHESTRATOR_URL=http://orchestrator:8080
+      # Orchestrator runs in host network mode, access via host IP
+      - ORCHESTRATOR_URL=http://host.docker.internal:8080
       - VM_READY_TIMEOUT_MS=${VM_READY_TIMEOUT_MS:-30000}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
-      - orchestrator
     networks:
       - bridge-network
 
@@ -33,14 +35,16 @@ services:
     container_name: vm-orchestrator
     restart: unless-stopped
     privileged: true
+    network_mode: host
     devices:
       - /dev/kvm:/dev/kvm
     volumes:
-      - firecracker-data:/var/lib/firecracker
+      - /var/lib/firecracker:/var/lib/firecracker
       - /tmp/firecracker/sockets:/tmp/firecracker/sockets
     environment:
       - PORT=8080
-      - REDIS_URL=redis://redis:6379
+      # host network mode: connect to Redis on localhost (Redis exposes port 6379)
+      - REDIS_URL=redis://127.0.0.1:6379
       - VM_SUBNET=${VM_SUBNET:-10.0.1.0/24}
       - GATEWAY_IP=${GATEWAY_IP:-10.0.1.1}
       - BRIDGE_NAME=${BRIDGE_NAME:-fcbr0}
@@ -51,9 +55,6 @@ services:
       - DEFAULT_MEM_MIB=${DEFAULT_MEM_MIB:-512}
     depends_on:
       - redis
-    networks:
-      - bridge-network
-      - vm-network
 
   ssh-gateway:
     build: ../ssh-gateway
@@ -79,6 +80,9 @@ services:
     image: redis:7-alpine
     container_name: clawdbot-wechat-redis
     restart: unless-stopped
+    ports:
+      # Expose to host for host-mode orchestrator
+      - "6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -87,7 +91,6 @@ services:
 
 volumes:
   redis-data:
-  firecracker-data:
   ssh-keys:
 
 networks:
