@@ -52,7 +52,8 @@ func (fl *FirecrackerLauncher) Launch(ctx context.Context, vmCfg VMConfig) (*Fir
 
 	// Build the kernel boot args with network config
 	bootArgs := fmt.Sprintf(
-		"console=ttyS0 reboot=k panic=1 pci=off "+
+		"console=ttyS0 reboot=k panic=1 pci=off ro "+
+			"random.trust_cpu=on "+
 			"ip=%s::%s:%s::eth0:off "+
 			"init=/sbin/init",
 		vmCfg.VMIP, vmCfg.GatewayIP, vmCfg.SubnetMask,
@@ -80,7 +81,8 @@ func (fl *FirecrackerLauncher) Launch(ctx context.Context, vmCfg VMConfig) (*Fir
   ],
   "machine-config": {
     "vcpu_count": %d,
-    "mem_size_mib": %d
+    "mem_size_mib": %d,
+    "smt": false
   },
   "network-interfaces": [
     {

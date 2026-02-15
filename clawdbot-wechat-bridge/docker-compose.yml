@@ -53,6 +53,7 @@ services:
       - VM_DATA_DIR=/var/lib/firecracker/vms
       - DEFAULT_VCPU=${DEFAULT_VCPU:-1}
       - DEFAULT_MEM_MIB=${DEFAULT_MEM_MIB:-512}
+      - LLM_GATEWAY_URL=http://10.0.1.1:8081/v1
     depends_on:
       - redis
 
@@ -72,6 +73,21 @@ services:
       - ssh-keys:/etc/ssh-gateway
     depends_on:
       - redis
+    networks:
+      - vm-network
+      - bridge-network
+
+  llm-gateway:
+    image: nginx:1-alpine
+    container_name: llm-gateway
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./llm-gateway/nginx.conf:/etc/nginx/templates/llm-gateway.conf.template:ro
+    environment:
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY}
+      - NGINX_ENVSUBST_FILTER=ZHIPU_API_KEY
     networks:
       - vm-network
       - bridge-network

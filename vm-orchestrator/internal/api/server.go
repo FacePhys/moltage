@@ -33,6 +33,7 @@ func NewServer(cfg *config.Config, mgr *vm.Manager) *gin.Engine {
 			vms.DELETE("/:user_id", handler.DestroyVM)
 			vms.POST("/:user_id/stop", handler.StopVM)
 			vms.POST("/:user_id/start", handler.StartVM)
+			vms.POST("/:user_id/passwd", handler.ChangePassword)
 		}
 	}
 

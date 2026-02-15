@@ -20,6 +20,7 @@ const RESTART_REGEX = /^restart$/i;
 const STOP_REGEX = /^stop$/i;
 const DESTROY_REGEX = /^destroy$/i;
 const HELP_REGEX = /^help$/i;
+const PASSWD_REGEX = /^passwd\s+(\S+)$/i;
 
 interface WeChatQueryParams {
     signature: string;
@@ -161,7 +162,7 @@ export async function wechatRoutes(fastify: FastifyInstance): Promise<void> {
                     const sshHost = config.bridge.sshHost;
                     const sshPort = config.bridge.sshPort;
                     return sendReply(buildTextReply(openId, toUser,
-                        `🤖 Clawdbot 云助手\n\n可用指令：\n• status - 查看 VM 状态\n• restart - 重启 VM\n• stop - 停止 VM\n• destroy - 销毁 VM 及数据\n• help - 显示帮助\n\n🖥 SSH 连接：\nssh ${openId}@${sshHost} -p ${sshPort}\n\n直接发送消息即可与 AI 对话。`
+                        `🤖 Clawdbot 云助手\n\n可用指令：\n• status - 查看 VM 状态\n• restart - 重启 VM\n• stop - 停止 VM\n• destroy - 销毁 VM 及数据\n• passwd <新密码> - 修改 SSH 密码\n• help - 显示帮助\n\n🖥 SSH 连接：\nssh ${openId}@${sshHost} -p ${sshPort}\n\n直接发送消息即可与 AI 对话。`
                     ));
                 }
 
@@ -179,6 +180,11 @@ export async function wechatRoutes(fastify: FastifyInstance): Promise<void> {
 
                 if (DESTROY_REGEX.test(content)) {
                     return handleDestroyCommand(openId, toUser, sendReply);
+                }
+
+                const passwdMatch = content.match(PASSWD_REGEX);
+                if (passwdMatch) {
+                    return handlePasswdCommand(openId, toUser, passwdMatch[1], sendReply);
                 }
             }
 
@@ -407,6 +413,34 @@ export async function wechatRoutes(fastify: FastifyInstance): Promise<void> {
             console.error(`[Destroy] Failed for ${openId}:`, err);
             return sendReply(buildTextReply(openId, toUser,
                 '❌ 销毁失败，请稍后重试。'
+            ));
+        }
+    }
+
+    /**
+     * Handle `passwd <new_password>` command
+     */
+    async function handlePasswdCommand(
+        openId: string,
+        toUser: string,
+        newPassword: string,
+        sendReply: (xml: string) => void
+    ) {
+        if (newPassword.length < 8) {
+            return sendReply(buildTextReply(openId, toUser,
+                '❌ 密码长度至少 8 个字符。\n\n用法: passwd <新密码>'
+            ));
+        }
+
+        try {
+            await orchestrator.changePassword(openId, newPassword);
+            return sendReply(buildTextReply(openId, toUser,
+                '✅ SSH 密码已修改成功！\n\n新密码将在下次 SSH 连接时生效。'
+            ));
+        } catch (err) {
+            console.error(`[Passwd] Failed for ${openId}:`, err);
+            return sendReply(buildTextReply(openId, toUser,
+                '❌ 密码修改失败，请确认 VM 处于运行状态后重试。'
             ));
         }
     }

@@ -241,8 +241,8 @@ cat > "$OPENCLAW_HOME/openclaw.json" << 'CONFIGEOF'
     "mode": "merge",
     "providers": {
       "zhipu": {
-        "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
-        "apiKey": "${ZHIPU_API_KEY}",
+        "baseUrl": "${LLM_GATEWAY_URL:-http://10.0.1.1:8081/v1}",
+        "apiKey": "gateway-managed",
         "api": "openai-completions",
         "models": [
           {

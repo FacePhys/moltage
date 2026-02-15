@@ -35,11 +35,11 @@ RUN ARCH=$(uname -m) && \
     chmod +x /usr/local/bin/firecracker && \
     rm -rf /tmp/firecracker.tgz /tmp/release-v1.6.0-*
 
-# Download compatible Linux kernel (5.10)
+# Download compatible Linux kernel (5.10, CI-tested with Firecracker v1.6.0)
 RUN ARCH=$(uname -m) && \
-    echo "Downloading vmlinux kernel..." && \
+    echo "Downloading vmlinux kernel for Firecracker v1.6.0..." && \
     mkdir -p /var/lib/firecracker && \
-    curl -fSL "https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/${ARCH}/kernels/vmlinux.bin" \
+    curl -fSL "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.6/${ARCH}/vmlinux-5.10.217" \
       -o /var/lib/firecracker/vmlinux
 
 # Firecracker directories

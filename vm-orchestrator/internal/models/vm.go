@@ -21,6 +21,7 @@ type VMInfo struct {
 	TapDevice      string         `json:"tap_device"`
 	SocketPath     string         `json:"socket_path"`
 	PID            int            `json:"pid,omitempty"`
+	SSHPassword    string         `json:"ssh_password,omitempty"`
 	ResourceLimits ResourceLimits `json:"resource_limits"`
 	CreatedAt      time.Time      `json:"created_at"`
 	StoppedAt      *time.Time     `json:"stopped_at,omitempty"`
@@ -48,4 +49,9 @@ type CreateVMResponse struct {
 type VMListResponse struct {
 	VMs   []VMInfo `json:"vms"`
 	Total int      `json:"total"`
+}
+
+// ChangePasswordRequest is the payload for changing a VM's SSH password.
+type ChangePasswordRequest struct {
+	NewPassword string `json:"new_password" binding:"required,min=8"`
 }
