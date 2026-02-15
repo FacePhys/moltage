@@ -9,3 +9,5 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/google/uuid v1.6.0
 )
+
+replace github.com/ugorji/go => github.com/ugorji/go/codec v1.2.11
