@@ -162,8 +162,12 @@ echo "Installing openclaw from npm..."
 
 # Force git to use HTTPS instead of SSH for GitHub URLs
 # (some deps like libsignal-node use ssh://git@github.com/... which fails without SSH keys)
-git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-git config --global url."https://github.com/".insteadOf "git@github.com:"
+# Write .gitconfig directly to avoid quoting issues with git config inside heredoc
+cat > /root/.gitconfig << 'GITCFG'
+[url "https://github.com/"]
+    insteadOf = ssh://git@github.com/
+    insteadOf = git@github.com:
+GITCFG
 
 npm install -g openclaw@latest --ignore-scripts
 
