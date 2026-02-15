@@ -36,6 +36,17 @@ fi
 
 # 1. Create sparse disk image
 echo "[1/7] Creating disk image..."
+
+# Clean up any stale mounts from previous failed runs
+if mountpoint -q "$MOUNTPOINT" 2>/dev/null; then
+    echo "  Cleaning up stale mount from previous run..."
+    umount -R "$MOUNTPOINT" 2>/dev/null || true
+fi
+# Detach any loop devices pointing to our output file
+losetup -j "$OUTPUT" 2>/dev/null | cut -d: -f1 | while read dev; do
+    losetup -d "$dev" 2>/dev/null || true
+done
+
 truncate -s ${SIZE_MB}M "$OUTPUT"
 mkfs.ext4 -q -F "$OUTPUT"
 
@@ -61,7 +72,7 @@ ARCH=$(uname -m)
 ALPINE_VERSION="3.19.7"
 
 # Use Alpine minirootfs tarball — works reliably on any Linux host (Ubuntu, etc.)
-MINIROOTFS_URL="https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/${ARCH}/alpine-minirootfs-${ALPINE_VERSION}-${ARCH}.tar.gz"
+MINIROOTFS_URL="https://mirrors.aliyun.com/alpine/v3.19/releases/${ARCH}/alpine-minirootfs-${ALPINE_VERSION}-${ARCH}.tar.gz"
 echo "Downloading Alpine minirootfs v${ALPINE_VERSION} (${ARCH})..."
 curl -fSL "$MINIROOTFS_URL" -o /tmp/alpine-minirootfs.tar.gz
 if [ $? -ne 0 ]; then
@@ -80,10 +91,10 @@ nameserver 114.114.114.114
 nameserver 223.5.5.5
 EOF
 
-# Configure Alpine repos
+# Configure Alpine repos (use Alibaba Cloud mirror for China)
 cat > "$MOUNTPOINT/etc/apk/repositories" << 'EOF'
-https://dl-cdn.alpinelinux.org/alpine/v3.19/main
-https://dl-cdn.alpinelinux.org/alpine/v3.19/community
+https://mirrors.aliyun.com/alpine/v3.19/main
+https://mirrors.aliyun.com/alpine/v3.19/community
 EOF
 
 # Mount proc/sys/dev for chroot (needed for apk install)
@@ -97,8 +108,8 @@ mount -t devtmpfs dev "$MOUNTPOINT/dev"
 echo "Installing packages in chroot..."
 chroot "$MOUNTPOINT" /bin/sh << 'CHROOTEOF'
 # Add Alpine edge repos for Node.js 22.x (3.19 only has Node 20.15 which is too old for npm 11)
-echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
-echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+echo "https://mirrors.aliyun.com/alpine/edge/main" >> /etc/apk/repositories
+echo "https://mirrors.aliyun.com/alpine/edge/community" >> /etc/apk/repositories
 
 apk update
 apk add --no-cache \
