@@ -91,18 +91,30 @@ mount -t proc proc "$MOUNTPOINT/proc"
 mount -t sysfs sys "$MOUNTPOINT/sys"
 mount -t devtmpfs dev "$MOUNTPOINT/dev"
 
-# Install required packages via chroot
+# Install required packages via chroot (including Node.js)
+# NOTE: Alpine uses musl libc — nodejs.org binaries (glibc) won't work!
+#       Must install Node.js via apk from Alpine repos.
 echo "Installing packages in chroot..."
 chroot "$MOUNTPOINT" /bin/sh << 'CHROOTEOF'
+# Add Alpine edge/community for Node.js 22.x
+echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+
 apk update
 apk add --no-cache \
     openrc openssh bash curl shadow \
-    python3 make g++ linux-headers
+    python3 make g++ linux-headers \
+    nodejs npm
+
+# Verify Node.js
+echo "Node: $(node --version)"
+echo "NPM:  $(npm --version)"
+
+# Use npmmirror registry for faster downloads in China
+npm config set registry https://registry.npmmirror.com
 CHROOTEOF
 
-# 4. Chroot and configure base system
+# 4. Configure base system
 echo "[4/7] Configuring system..."
-
 chroot "$MOUNTPOINT" /bin/sh << 'CHROOTEOF'
 # Set hostname
 echo "clawdbot" > /etc/hostname
@@ -114,7 +126,7 @@ sed -i 's/^#ttyS0/ttyS0/' /etc/inittab 2>/dev/null || true
 rc-update add sshd default 2>/dev/null || true
 rc-update add networking default 2>/dev/null || true
 
-# Configure SSH — keys are unique per user (stored in /data/ssh/)
+# Configure SSH
 mkdir -p /etc/ssh
 ssh-keygen -A 2>/dev/null || true
 sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
@@ -126,30 +138,8 @@ echo "user:clawdbot" | chpasswd
 echo "root:clawdbot" | chpasswd
 CHROOTEOF
 
-# 5. Install Node.js 22
-echo "[5/7] Installing Node.js 22..."
-chroot "$MOUNTPOINT" /bin/sh << 'CHROOTEOF'
-case "$(uname -m)" in
-    x86_64) NODE_ARCH="x64" ;;
-    aarch64) NODE_ARCH="arm64" ;;
-    *) echo "Unsupported arch: $(uname -m)"; exit 1 ;;
-esac
-
-NODE_VERSION="22.12.0"
-echo "Downloading Node.js v${NODE_VERSION}..."
-curl -sL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" | \
-    tar -xJ -C /usr/local --strip-components=1
-
-# Verify
-echo "Node: $(node --version)"
-echo "NPM:  $(npm --version)"
-
-# Use npmmirror registry for faster downloads in China
-npm config set registry https://registry.npmmirror.com
-CHROOTEOF
-
-# 6. Install OpenClaw + Webhook Plugin
-echo "[6/7] Installing OpenClaw + WeChat webhook plugin..."
+# 5. Install OpenClaw + Webhook Plugin
+echo "[5/6] Installing OpenClaw + WeChat webhook plugin..."
 
 # Copy the plugin source into rootfs for local install
 echo "Copying webhook plugin source into rootfs..."
