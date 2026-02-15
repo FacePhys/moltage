@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/facephys/vm-orchestrator/internal/models"
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -222,6 +224,65 @@ func (m *Manager) DestroyVM(ctx context.Context, userID string) error {
 	m.redis.Del(ctx, vmBindingPrefix+userID)
 
 	log.WithField("user_id", userID).Info("VM destroyed")
+	return nil
+}
+
+// ChangePassword changes the SSH password for a user's VM.
+// It SSHs into the VM and runs chpasswd, then stores the new password in Redis.
+func (m *Manager) ChangePassword(ctx context.Context, userID, newPassword string) error {
+	info, err := m.GetVMInfo(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get VM info: %w", err)
+	}
+	if info == nil {
+		return fmt.Errorf("no VM found for user %s", userID)
+	}
+	if info.Status != models.VMStatusRunning {
+		return fmt.Errorf("VM is not running (status: %s)", info.Status)
+	}
+
+	// Determine current password (use stored one or default)
+	currentPass := info.SSHPassword
+	if currentPass == "" {
+		currentPass = "clawdbot"
+	}
+
+	// SSH into the VM and change password
+	sshConfig := &ssh.ClientConfig{
+		User: "user",
+		Auth: []ssh.AuthMethod{
+			ssh.Password(currentPass),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}
+
+	vmAddr := net.JoinHostPort(info.VMIP, "22")
+	client, err := ssh.Dial("tcp", vmAddr, sshConfig)
+	if err != nil {
+		return fmt.Errorf("failed to SSH into VM: %w", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create SSH session: %w", err)
+	}
+	defer session.Close()
+
+	// Change password for both 'user' and 'root'
+	cmd := fmt.Sprintf("echo 'user:%s\nroot:%s' | chpasswd", newPassword, newPassword)
+	if err := session.Run(cmd); err != nil {
+		return fmt.Errorf("failed to change password: %w", err)
+	}
+
+	// Store new password in Redis
+	info.SSHPassword = newPassword
+	if err := m.saveVMInfo(ctx, info); err != nil {
+		return fmt.Errorf("password changed in VM but failed to save to Redis: %w", err)
+	}
+
+	log.WithField("user_id", userID).Info("VM password changed successfully")
 	return nil
 }
 

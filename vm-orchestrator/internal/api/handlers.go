@@ -125,3 +125,26 @@ func (h *Handler) StartVM(c *gin.Context) {
 
 	c.JSON(http.StatusOK, info)
 }
+
+// ChangePassword handles POST /api/v1/vms/:user_id/passwd
+func (h *Handler) ChangePassword(c *gin.Context) {
+	userID := c.Param("user_id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
+		return
+	}
+
+	var req models.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		return
+	}
+
+	if err := h.manager.ChangePassword(c.Request.Context(), userID, req.NewPassword); err != nil {
+		log.WithError(err).WithField("user_id", userID).Error("ChangePassword failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "password_changed"})
+}

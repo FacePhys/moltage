@@ -12,6 +12,7 @@ export interface VMBinding {
     createdAt: number;
     lastActiveAt: number;
     errorMessage?: string;
+    ssh_password?: string; // Per-user SSH password (set via passwd command)
 }
 
 const VM_BINDING_PREFIX = 'vm:binding:';

@@ -41,12 +41,23 @@ import (
 
 const vmBindingPrefix = "vm:binding:"
 
-// VMBinding mirrors the Redis JSON structure from the Bridge's redis.ts
+// VMBinding mirrors the Redis JSON structure.
+// Supports both bridge (camelCase) and orchestrator (snake_case) field names.
 type VMBinding struct {
-	VMIP     string `json:"vmIp"`
-	SSHPort  int    `json:"sshPort"`
-	Status   string `json:"status"`
-	ErrorMsg string `json:"errorMessage,omitempty"`
+	VMIP        string `json:"vmIp"`
+	VMIPAlt     string `json:"vm_ip"`
+	SSHPort     int    `json:"sshPort"`
+	Status      string `json:"status"`
+	ErrorMsg    string `json:"errorMessage,omitempty"`
+	SSHPassword string `json:"ssh_password,omitempty"`
+}
+
+// GetVMIP returns the VM IP from whichever field is populated.
+func (b *VMBinding) GetVMIP() string {
+	if b.VMIP != "" {
+		return b.VMIP
+	}
+	return b.VMIPAlt
 }
 
 func main() {
@@ -183,11 +194,16 @@ func handleSSHConnection(
 	}
 
 	// Step 3: Connect to VM's SSH
-	vmAddr := fmt.Sprintf("%s:22", binding.VMIP)
+	// Use per-user password from Redis if available, otherwise fall back to default
+	effectivePass := vmPass
+	if binding.SSHPassword != "" {
+		effectivePass = binding.SSHPassword
+	}
+	vmAddr := fmt.Sprintf("%s:22", binding.GetVMIP())
 	vmConfig := &ssh.ClientConfig{
 		User: vmUser,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(vmPass),
+			ssh.Password(effectivePass),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Internal VPC — trusted
 		Timeout:         10 * time.Second,
@@ -207,7 +223,7 @@ func handleSSHConnection(
 
 	log.WithFields(log.Fields{
 		"user_id": userID,
-		"vm_ip":   binding.VMIP,
+		"vm_ip":   binding.GetVMIP(),
 	}).Info("Connected to VM, proxying session")
 
 	// Step 4: Discard global requests on the client side

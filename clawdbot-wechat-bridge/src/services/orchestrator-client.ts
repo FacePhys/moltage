@@ -81,6 +81,15 @@ export class OrchestratorClient {
     async destroyVM(userId: string): Promise<void> {
         await this.client.delete(`/api/v1/vms/${userId}`);
     }
+
+    /**
+     * Change the SSH password for a user's VM.
+     */
+    async changePassword(userId: string, newPassword: string): Promise<void> {
+        await this.client.post(`/api/v1/vms/${userId}/passwd`, {
+            new_password: newPassword,
+        });
+    }
 }
 
 // Singleton instance
