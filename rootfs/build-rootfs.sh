@@ -57,43 +57,51 @@ trap cleanup EXIT
 
 # 3. Install Alpine base system
 echo "[3/7] Installing Alpine base system..."
-APK_TOOLS_VERSION="2.14.0-r5"
 ARCH=$(uname -m)
+ALPINE_VERSION="3.19.7"
 
-# Download apk-tools-static
-cd /tmp
-APK_URL="https://dl-cdn.alpinelinux.org/alpine/v3.19/main/${ARCH}/apk-tools-static-${APK_TOOLS_VERSION}.apk"
-curl -sLO "$APK_URL" 2>/dev/null || true
-
-if [ -f "apk-tools-static-${APK_TOOLS_VERSION}.apk" ]; then
-    tar -xzf "apk-tools-static-${APK_TOOLS_VERSION}.apk" 2>/dev/null || true
-fi
-
-# Bootstrap Alpine rootfs
-if [ -f "/tmp/sbin/apk.static" ]; then
-    /tmp/sbin/apk.static -X https://dl-cdn.alpinelinux.org/alpine/v3.19/main \
-        -X https://dl-cdn.alpinelinux.org/alpine/v3.19/community \
-        -U --allow-untrusted --root "$MOUNTPOINT" --initdb \
-        add alpine-base openrc openssh bash curl shadow python3 make g++
-elif command -v alpine-make-rootfs &>/dev/null; then
-    alpine-make-rootfs --branch v3.19 "$MOUNTPOINT" \
-        alpine-base openrc openssh bash curl shadow python3 make g++
-else
-    echo "ERROR: Need either apk-tools-static or alpine-make-rootfs"
+# Use Alpine minirootfs tarball — works reliably on any Linux host (Ubuntu, etc.)
+MINIROOTFS_URL="https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/${ARCH}/alpine-minirootfs-${ALPINE_VERSION}-${ARCH}.tar.gz"
+echo "Downloading Alpine minirootfs v${ALPINE_VERSION} (${ARCH})..."
+curl -fSL "$MINIROOTFS_URL" -o /tmp/alpine-minirootfs.tar.gz
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to download Alpine minirootfs from:"
+    echo "  $MINIROOTFS_URL"
     exit 1
 fi
 
-# 4. Chroot and configure base system
-echo "[4/7] Configuring system..."
+# Extract into the mounted rootfs
+tar -xzf /tmp/alpine-minirootfs.tar.gz -C "$MOUNTPOINT"
+rm -f /tmp/alpine-minirootfs.tar.gz
+
+# Configure DNS before installing packages
 cat > "$MOUNTPOINT/etc/resolv.conf" << 'EOF'
 nameserver 114.114.114.114
 nameserver 223.5.5.5
 EOF
 
-# Mount proc/sys for chroot
+# Configure Alpine repos
+cat > "$MOUNTPOINT/etc/apk/repositories" << 'EOF'
+https://dl-cdn.alpinelinux.org/alpine/v3.19/main
+https://dl-cdn.alpinelinux.org/alpine/v3.19/community
+EOF
+
+# Mount proc/sys/dev for chroot (needed for apk install)
 mount -t proc proc "$MOUNTPOINT/proc"
 mount -t sysfs sys "$MOUNTPOINT/sys"
 mount -t devtmpfs dev "$MOUNTPOINT/dev"
+
+# Install required packages via chroot
+echo "Installing packages in chroot..."
+chroot "$MOUNTPOINT" /bin/sh << 'CHROOTEOF'
+apk update
+apk add --no-cache \
+    openrc openssh bash curl shadow \
+    python3 make g++ linux-headers
+CHROOTEOF
+
+# 4. Chroot and configure base system
+echo "[4/7] Configuring system..."
 
 chroot "$MOUNTPOINT" /bin/sh << 'CHROOTEOF'
 # Set hostname
