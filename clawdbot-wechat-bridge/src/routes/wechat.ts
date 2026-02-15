@@ -426,9 +426,9 @@ export async function wechatRoutes(fastify: FastifyInstance): Promise<void> {
         newPassword: string,
         sendReply: (xml: string) => void
     ) {
-        if (newPassword.length < 6) {
+        if (newPassword.length < 8) {
             return sendReply(buildTextReply(openId, toUser,
-                '❌ 密码长度至少 6 个字符。\n\n用法: passwd <新密码>'
+                '❌ 密码长度至少 8 个字符。\n\n用法: passwd <新密码>'
             ));
         }
 

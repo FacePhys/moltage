@@ -270,9 +270,21 @@ func (m *Manager) ChangePassword(ctx context.Context, userID, newPassword string
 	}
 	defer session.Close()
 
-	// Change password for both 'user' and 'root'
-	cmd := fmt.Sprintf("echo 'user:%s\nroot:%s' | chpasswd", newPassword, newPassword)
-	if err := session.Run(cmd); err != nil {
+	// Change password for both 'user' and 'root' via stdin to avoid
+	// exposing passwords in process listings
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdin pipe: %w", err)
+	}
+
+	if err := session.Start("chpasswd"); err != nil {
+		return fmt.Errorf("failed to start chpasswd: %w", err)
+	}
+
+	fmt.Fprintf(stdin, "user:%s\nroot:%s\n", newPassword, newPassword)
+	stdin.Close()
+
+	if err := session.Wait(); err != nil {
 		return fmt.Errorf("failed to change password: %w", err)
 	}
 
